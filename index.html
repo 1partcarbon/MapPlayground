@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Map Plot Options</title>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      .map {
+        height: 300px;
+        width: 500px;
+        margin-bottom: 20px;
+      }
+      .container {
+        width: 500px;
+        margin: 10px auto;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="map" id="simple"></div>
+      <div class="map" id="all-bounce"></div>
+      <div class="map" id="some-bounce"></div>
+      <div class="map" id="dashed-bounce"></div>
+    </div>
+    <script>
+
+// This example creates an interactive map which constructs a polyline based on
+// user clicks. Note that the polyline only appears once its path property
+// contains two LatLng coordinates.
+
+var points = [
+  {lat: 55.940343943236705, lng: -3.1827735900878906},
+  {lat: 55.939634904630424, lng: -3.187086582183838},
+  {lat: 55.93977911692385, lng: -3.191549777984619},
+  {lat: 55.9420023218369, lng: -3.20051908493042},
+  {lat: 55.94233879578638, lng: -3.1979012489318848},
+  {lat: 55.9426271997022, lng: -3.1914639472961426},
+  {lat: 55.942098457549314, lng: -3.186979293823242},
+  {lat: 55.940343943236705, lng: -3.1827735900878906}
+];
+
+function initMap() {
+  var simpleMap = createMap('simple');
+  var poly = createPoly();
+  poly.setMap(simpleMap);
+  simple(poly);
+
+  var bounceMap = createMap('all-bounce');
+
+  var someBounceMap = createMap('some-bounce');
+  someBounceMap.distanceOver = 300.0;
+
+  var dashedBounceMap = createMap('dashed-bounce');
+  dashedBounceMap.distanceOver = 300.0;
+  var lineSymbol = {
+    path: 'M 0,-1 0,1',
+    strokeOpacity: 1,
+    scale: 4
+  }
+  dashedBounceMap.linePoly = new google.maps.Polyline({
+    strokeOpacity: 0,
+    icons:[{
+      icon: lineSymbol,
+      offset: '0',
+      repeat: '10px'
+    }]
+  });
+
+
+  google.maps.event.addListener(bounceMap, 'projection_changed', allBounce);
+  google.maps.event.addListener(someBounceMap, 'projection_changed', allBounce);
+  google.maps.event.addListener(dashedBounceMap, 'projection_changed', allBounce);
+}
+
+function createMap(el) {
+  var zoom = 15;
+  return new google.maps.Map(document.getElementById(el), {
+    zoom: zoom,
+    center: {lat: 55.9414085, lng: -3.1918273},
+    disableDefaultUI: true,
+    scrollwheel:  false,
+    maxZoom: zoom,
+    minZoom: zoom,
+  });
+}
+
+function createPoly() {
+  return new google.maps.Polyline({
+    strokeColor: '#000000',
+    strokeOpacity: 1.0,
+    strokeWeight: 3,
+  });
+}
+
+function simple(poly) {
+  var path = poly.getPath();
+  points.forEach( function(point) {
+    path.push(new google.maps.LatLng(point.lat, point.lng));
+  });
+}
+
+function allBounce() {
+  var map = this;
+  var markers = [];
+
+  points.forEach( function(point) {
+    markers.push( new google.maps.Marker({
+        position: new google.maps.LatLng(point.lat, point.lng),
+        map: map,
+        visible: false
+      })
+    )
+  });
+
+  for(var i = 1; i < markers.length; i++) {
+    var pos1 = markers[i-1].getPosition(), // latlng
+        pos2 = markers[i].getPosition()
+    var projection = map.getProjection(),
+        p1 = projection.fromLatLngToPoint(pos1), // xy
+        p2 = projection.fromLatLngToPoint(pos2);
+
+    // Calculate the arc.
+    // To simplify the math, these points
+    // are all relative to p1:
+    var curvature,
+        e = new google.maps.Point(p2.x - p1.x, p2.y - p1.y), // endpoint (p2 relative to p1)
+        m = new google.maps.Point(e.x / 2, e.y / 2), // midpoint
+        o = new google.maps.Point(e.y, -e.x); // orthogonal
+
+    if(map.distanceOver) {
+      var distance = getDistance(pos1, pos2);
+      if(distance > 300.0) {
+        curvature = 0.5
+      } else {
+        curvature = 0
+      }
+    } else {
+      curvature = 0.5;
+    }
+
+    var c = new google.maps.Point( // curve control point
+          m.x + curvature * o.x,
+          m.y + curvature * o.y
+        );
+
+    var pathDef = 'M 0,0 ' + 'q ' + c.x + ',' + c.y + ' ' + e.x + ',' + e.y;
+    console.log(pathDef)
+
+    var zoom = map.getZoom(),
+    scale = 1 / (Math.pow(2, -zoom));
+
+    var symbol = {
+        path: pathDef,
+        scale: scale,
+        strokeWeight: 2,
+        fillColor: 'none'
+      };
+
+    new google.maps.Marker({
+      position: pos1,
+      clickable: false,
+      icon: symbol,
+      zIndex: 0, // behind the other markers
+      map: map,
+    });
+  }
+}
+
+function rad(x) {
+  return x * Math.PI / 180;
+}
+
+function getDistance(p1, p2) {
+  var R = 6371000; // Earth’s mean radius in meter
+  var dLat = rad(p2.lat() - p1.lat());
+  var dLong = rad(p2.lng() - p1.lng());
+  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(rad(p1.lat())) * Math.cos(rad(p2.lat())) *
+    Math.sin(dLong / 2) * Math.sin(dLong / 2);
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  var d = R * c;
+  return d; // returns the distance in meter
+};
+
+
+// Handles click events on a map, and adds a new point to the Polyline.
+// function addLatLng(event) {
+//   var path = poly.getPath();
+//
+//   // Because path is an MVCArray, we can simply append a new coordinate
+//   // and it will automatically appear.
+//   path.push(event.latLng);
+//
+//   // Add a new marker at the new plotted point on the polyline.
+//   var marker = new google.maps.Marker({
+//     position: event.latLng,
+//     title: '#' + path.getLength(),
+//     map: map
+//   });
+// }
+    </script>
+    <script async defer
+                       src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCn4HQu_7ypz6l-9X4RxmyT2dS0nCDua78&libraries=geometry&callback=initMap">
+    </script>
+  </body>
+</html>
