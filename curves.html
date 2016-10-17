@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Map Plot Options</title>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      .map {
+        height: 300px;
+        width: 500px;
+        margin-bottom: 20px;
+      }
+      .container {
+        width: 500px;
+        margin: 10px auto;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <p><a href="/">Markers</a> | <a href="/curves.html">Polys</a></p>
+    </header>
+    <div class="container">
+      <div class="map" id="simple"></div>
+      <div class="map" id="bounce"></div>
+    </div>
+    <script>
+
+// This example creates an interactive map which constructs a polyline based on
+// user clicks. Note that the polyline only appears once its path property
+// contains two LatLng coordinates.
+
+var points = [
+  {lat: 55.940343943236705, lng: -3.1827735900878906},
+  {lat: 55.939634904630424, lng: -3.187086582183838},
+  {lat: 55.93977911692385, lng: -3.191549777984619},
+  {lat: 55.9420023218369, lng: -3.20051908493042},
+  {lat: 55.94233879578638, lng: -3.1979012489318848},
+  {lat: 55.9426271997022, lng: -3.1914639472961426},
+  {lat: 55.942098457549314, lng: -3.186979293823242},
+  {lat: 55.940343943236705, lng: -3.1827735900878906}
+];
+
+function initMap() {
+  var simpleMap = createMap('simple');
+  var poly = createPoly();
+  poly.setMap(simpleMap);
+  simple(poly);
+
+  var bounceMap = createMap('bounce');
+  bounceMap.distanceOver = 300.0;
+
+  google.maps.event.addListener(bounceMap, 'projection_changed', bounce);
+}
+
+function createMap(el) {
+  var zoom = 15;
+  return new google.maps.Map(document.getElementById(el), {
+    zoom: zoom,
+    center: {lat: 55.9414085, lng: -3.1918273},
+    disableDefaultUI: true,
+    scrollwheel:  false,
+    maxZoom: zoom,
+    minZoom: zoom,
+  });
+}
+
+function createPoly() {
+  return new google.maps.Polyline({
+    strokeColor: '#000000',
+    strokeOpacity: 1.0,
+    strokeWeight: 3,
+  });
+}
+
+function simple(poly) {
+  var path = poly.getPath();
+  points.forEach( function(point) {
+    path.push(new google.maps.LatLng(point.lat, point.lng));
+  });
+}
+
+function bounce() {
+  var map = this;
+  var markers = [];
+
+  points.forEach( function(point) {
+    markers.push( new google.maps.Marker({
+        position: new google.maps.LatLng(point.lat, point.lng),
+        map: map,
+        visible: false
+      })
+    )
+  });
+
+  for(var i = 1; i < markers.length; i++) {
+    var p1 = markers[i-1],
+        p2 = markers[i],
+        distance = getDistance(p1.getPosition(), p2.getPosition());
+    if(distance > 300.0) {
+      drawDashedCurve(markers[i-1].getPosition(), markers[i].getPosition(), map);
+    } else {
+      drawLine(p1.getPosition(), p2.getPosition(), map)
+    }
+  }
+}
+
+function rad(x) {
+  return x * Math.PI / 180;
+}
+
+function getDistance(p1, p2) {
+  var R = 6371000; // Earth’s mean radius in meter
+  var dLat = rad(p2.lat() - p1.lat());
+  var dLong = rad(p2.lng() - p1.lng());
+  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(rad(p1.lat())) * Math.cos(rad(p2.lat())) *
+    Math.sin(dLong / 2) * Math.sin(dLong / 2);
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  var d = R * c;
+  return d; // returns the distance in meter
+};
+
+function drawLine(p1, p2, map) {
+  var path = [
+    new google.maps.LatLng(p1.lat(), p1.lng()),
+    new google.maps.LatLng(p2.lat(), p2.lng())
+  ];
+
+  new google.maps.Polyline({
+    path: path,
+    map: map,
+    strokeColor: 'grey'
+  });
+}
+
+function drawDashedCurve(P1, P2, map) {
+  var lineLength = google.maps.geometry.spherical.computeDistanceBetween(P1, P2);
+  var lineHeading = google.maps.geometry.spherical.computeHeading(P1, P2);
+  if (lineHeading < 0) {
+    var lineHeading1 = lineHeading + 45;
+    var lineHeading2 = lineHeading + 135;
+  } else {
+    var lineHeading1 = lineHeading + -45;
+    var lineHeading2 = lineHeading + -135;
+  }
+  var pA = google.maps.geometry.spherical.computeOffset(P1, lineLength / 2.2, lineHeading1);
+  var pB = google.maps.geometry.spherical.computeOffset(P2, lineLength / 2.2, lineHeading2);
+
+  var curvedLine = new GmapsCubicBezier(P1, pA, pB, P2, 0.01, map);
+}
+
+var GmapsCubicBezier = function (latlong1, latlong2, latlong3, latlong4, resolution, map) {
+  var lat1 = latlong1.lat();
+  var long1 = latlong1.lng();
+  var lat2 = latlong2.lat();
+  var long2 = latlong2.lng();
+  var lat3 = latlong3.lat();
+  var long3 = latlong3.lng();
+  var lat4 = latlong4.lat();
+  var long4 = latlong4.lng();
+
+  var points = [];
+
+  for (it = 0; it <= 1; it += resolution) {
+    points.push(this.getBezier({
+        x: lat1,
+        y: long1
+    }, {
+        x: lat2,
+        y: long2
+    }, {
+        x: lat3,
+        y: long3
+    }, {
+        x: lat4,
+        y: long4
+    }, it));
+  }
+
+  var path = [];
+  for (var i = 0; i < points.length - 1; i++) {
+    path.push(new google.maps.LatLng(points[i].x, points[i].y));
+    path.push(new google.maps.LatLng(points[i + 1].x, points[i + 1].y, false));
+  }
+
+    var Line = new google.maps.Polyline({
+      path: path,
+      geodesic: true,
+      strokeOpacity: 0.0,
+        icons: [{
+          icon: {
+              path: 'M 0,-1 0,1',
+              strokeOpacity: 1,
+              scale: 4
+          },
+          offset: '0',
+          repeat: '20px'
+        }],
+        strokeColor: 'red'
+     });
+
+  Line.setMap(map);
+  return Line;
+};
+
+GmapsCubicBezier.prototype = {
+  B1: function (t) {
+      return t * t * t;
+  },
+  B2: function (t) {
+      return 3 * t * t * (1 - t);
+  },
+  B3: function (t) {
+      return 3 * t * (1 - t) * (1 - t);
+  },
+  B4: function (t) {
+      return (1 - t) * (1 - t) * (1 - t);
+  },
+  getBezier: function (C1, C2, C3, C4, percent) {
+      var pos = {};
+      pos.x = C1.x * this.B1(percent) + C2.x * this.B2(percent) + C3.x * this.B3(percent) + C4.x * this.B4(percent);
+      pos.y = C1.y * this.B1(percent) + C2.y * this.B2(percent) + C3.y * this.B3(percent) + C4.y * this.B4(percent);
+      return pos;
+  }
+};
+
+    </script>
+    <script async defer
+                       src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCn4HQu_7ypz6l-9X4RxmyT2dS0nCDua78&libraries=geometry&callback=initMap">
+    </script>
+  </body>
+</html>

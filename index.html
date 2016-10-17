@@ -23,11 +23,13 @@
     </style>
   </head>
   <body>
+    <header>
+      <p><a href="/">Markers</a> | <a href="/curves.html">Polys</a></p>
+    </header>
     <div class="container">
       <div class="map" id="simple"></div>
       <div class="map" id="all-bounce"></div>
       <div class="map" id="some-bounce"></div>
-      <div class="map" id="dashed-bounce"></div>
     </div>
     <script>
 
@@ -57,26 +59,9 @@ function initMap() {
   var someBounceMap = createMap('some-bounce');
   someBounceMap.distanceOver = 300.0;
 
-  var dashedBounceMap = createMap('dashed-bounce');
-  dashedBounceMap.distanceOver = 300.0;
-  var lineSymbol = {
-    path: 'M 0,-1 0,1',
-    strokeOpacity: 1,
-    scale: 4
-  }
-  dashedBounceMap.linePoly = new google.maps.Polyline({
-    strokeOpacity: 0,
-    icons:[{
-      icon: lineSymbol,
-      offset: '0',
-      repeat: '10px'
-    }]
-  });
-
-
   google.maps.event.addListener(bounceMap, 'projection_changed', allBounce);
   google.maps.event.addListener(someBounceMap, 'projection_changed', allBounce);
-  google.maps.event.addListener(dashedBounceMap, 'projection_changed', allBounce);
+  google.maps.event.addListener(dashedBounceMap, 'projection_changed', dashedBounce);
 }
 
 function createMap(el) {
@@ -151,7 +136,6 @@ function allBounce() {
         );
 
     var pathDef = 'M 0,0 ' + 'q ' + c.x + ',' + c.y + ' ' + e.x + ',' + e.y;
-    console.log(pathDef)
 
     var zoom = map.getZoom(),
     scale = 1 / (Math.pow(2, -zoom));
@@ -189,22 +173,6 @@ function getDistance(p1, p2) {
   return d; // returns the distance in meter
 };
 
-
-// Handles click events on a map, and adds a new point to the Polyline.
-// function addLatLng(event) {
-//   var path = poly.getPath();
-//
-//   // Because path is an MVCArray, we can simply append a new coordinate
-//   // and it will automatically appear.
-//   path.push(event.latLng);
-//
-//   // Add a new marker at the new plotted point on the polyline.
-//   var marker = new google.maps.Marker({
-//     position: event.latLng,
-//     title: '#' + path.getLength(),
-//     map: map
-//   });
-// }
     </script>
     <script async defer
                        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCn4HQu_7ypz6l-9X4RxmyT2dS0nCDua78&libraries=geometry&callback=initMap">
